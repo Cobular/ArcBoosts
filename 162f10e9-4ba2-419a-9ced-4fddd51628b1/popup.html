@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="initial-scale=1.0" />
+    <title>Popup Page</title>
+  </head>
+  <body>
+    <div>
+      <h1>Popup Page - google</h1>
+      <p>Hello!</p>
+      <button id="test">eeee</button>
+    </div>
+  </body>
+  <script>
+    const elem = document.getElementById("test")
+    elem.textContent = chrome.runtime.id
+    </script>
+</html>
