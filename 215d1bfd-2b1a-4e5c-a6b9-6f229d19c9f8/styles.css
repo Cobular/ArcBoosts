@@ -1,3 +1,7 @@
+body {
+  overscroll-behavior: none;
+}
+
 .mw-body  {
   margin-left: 0 !important;
   width: 75ch;
@@ -43,6 +47,8 @@
   flex-grow: 1;
   height: calc(100vh - 60px);
   overflow: hidden;
+
+  overflow-x: scroll;
 }
 
 .page_parent {
