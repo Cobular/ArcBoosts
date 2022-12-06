@@ -1,8 +1,15 @@
 // Alternate link click logic
 async function processClick(elem, url) {
   const parent = elem.closest("[org-source]");
-  const parent_url = parent.getAttribute("org-source")
-  console.log({ thisUrl: url, parent_url })
+  
+  let parent_url;
+  // If parent is null, it's probably from search
+  if (parent === null) {
+    parent_url = "search"
+  } else {
+  parent_url = parent.getAttribute("org-source")
+  }
+
   const resp = await fetch(url)
 
   const htmlString = await resp.text();
@@ -20,17 +27,25 @@ async function processClick(elem, url) {
 
 // Link interception logic - https://stackoverflow.com/a/33616981
 async function interceptClickEvent(e) {
-  var href;
-  var target = e.target || e.srcElement;
-  if (target.tagName === 'A') {
-    href = target.getAttribute('href');
+  async function process_link(link) {
+    href = link.getAttribute('href');
 
     //put your logic here...
     if (true) {
       e.preventDefault();
-      await processClick(target, href)
+      await processClick(link, href)
       //tell the browser not to respond to the link click
     }
+  }
+  var href;
+  var target = e.target || e.srcElement;
+  if (target.tagName === 'A') {
+    process_link(target)
+  }
+
+  const parent_a = target.closest("a")
+  if (parent_a !== null) {
+    process_link(parent_a)
   }
 }
 
@@ -53,7 +68,7 @@ function removeAllChildNodes(parent) {
  * @typedef DocumentComponents
  * @type {object}
  * @property {HTMLElement} main_content
- * @property {HTMLElement} login_stuff
+ * @property {HTMLElement} search_tabs
  */
 
 /**
@@ -71,7 +86,7 @@ function parse_doc(doc) {
 
   return {
     main_content,
-    login_stuff
+    search_tabs
   }
 }
 
@@ -85,12 +100,6 @@ function clean_doc(doc, doc_components) {
   body.appendChild(doc_components.login_stuff)
   body.appendChild(doc_components.main_content)
 }
-
-let open_docs_handler = {
-  set(obj, prop, value) {
-
-  }
-}
 /**
  * Preps a doc for insertion (adding columns, etc)
  * 
@@ -98,7 +107,6 @@ let open_docs_handler = {
  */
 function prep_doc(doc) {
   const title = doc.getElementsByClassName('firstHeading')[0]
-  console.log(title)
   const new_parent = document.createElement("div");
   new_parent.classList.add("page_parent")
 
@@ -156,15 +164,30 @@ class DocumentTree {
  * @param {Element} starting_page_data
  * @returns {Element} container
  * */
-function first_time_setup(doc, upper_chrome) {
+function first_time_setup(doc, search) {
   const body = doc.body;
 
   removeAllChildNodes(body)
 
-  body.appendChild(upper_chrome)
   let big_container = doc.createElement("div");
   big_container.id = "boost-container"
   body.appendChild(big_container)
+
+  // header
+  const header = document.createElement("div")
+  header.id = "boost-header"
+  const header_text = document.createElement("h1")
+  header_text.id = "boost-headertext"
+  header_text.textContent = "Infinite Wikipedia"
+  header.appendChild(header_text)
+    header.appendChild(search)
+
+
+  for (child of search.children) {
+    if (child.id != "p-search")
+      child.remove()
+  }
+  big_container.appendChild(header)
 
   let sub_container = doc.createElement("div");
   sub_container.id = "boost-subcontainer"
@@ -174,7 +197,7 @@ function first_time_setup(doc, upper_chrome) {
 }
 
 const processed_doc = parse_doc(document)
-const container = first_time_setup(document, processed_doc.login_stuff)
+const container = first_time_setup(document, processed_doc.search_tabs)
 const doc_tree = new DocumentTree(container)
 
 
