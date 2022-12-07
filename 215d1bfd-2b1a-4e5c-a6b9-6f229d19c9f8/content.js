@@ -367,6 +367,15 @@ class DocumentTree {
     }
   }
 
+  removeRootNodeByURL(url) {
+    delete this.root_docs[url]
+    this.active_root_doc = undefined
+    if (Object.keys(this.root_docs).length !== 0) {
+      const children = Object.keys(this.root_docs)
+      this.active_root_doc = children[children.length - 1]
+    }
+  }
+
   /** Redraws the container from the current state */
   redraw_container() {
     // If the stack is empty, draw the "nothing here" thing!
@@ -385,10 +394,23 @@ class DocumentTree {
       const this_page = things_to_draw[0]
 
       for (const root_node of Object.values(this.root_docs)) {
-        root_frame.addTab(root_node.title, this_page.title, () => {
+      const select = () => {
+          console.log("Clicked!")
           this.active_root_doc = root_node.url
           this.redraw_container()
-        })
+          root_frame.elem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          })
+      }
+      const close = () => {
+        // TODO: fixme
+        this.removeRootNodeByURL(root_node.url)
+        this.redraw_container()
+      }
+
+        root_frame.addTab(root_node.title, this_page.title, select, close)
       }
 
       root_frame.setContents(this_page.doc)
@@ -406,9 +428,10 @@ class DocumentTree {
       // Do the tabs
       for (const sibling_node of Object.values(parent_doc.children)) {
         const select = () => {
+          console.log("Clicked!")
           parent_doc.setSelectedDocument(sibling_node.url)
           this.redraw_container()
-
+          console.log(this_frame.elem)
           this_frame.elem.scrollIntoView({
             behavior: 'smooth',
             block: 'center',
