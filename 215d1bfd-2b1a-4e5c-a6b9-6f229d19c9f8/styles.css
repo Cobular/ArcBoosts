@@ -117,6 +117,7 @@ body {
   flex-direction: row;
   padding: 12px;
   padding-top: 40px;
+  min-width: 23px;
 }
 
 .boost-nameelement {

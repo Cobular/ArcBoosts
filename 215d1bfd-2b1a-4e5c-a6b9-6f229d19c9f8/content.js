@@ -40,12 +40,10 @@ async function interceptClickEvent(e) {
   }
   var href;
   var target = e.target || e.srcElement;
+  const parent_a = target.closest("a")
   if (target.tagName === 'A') {
     process_link(target)
-  }
-
-  const parent_a = target.closest("a")
-  if (parent_a !== null) {
+  } else if (parent_a !== null) {
     process_link(parent_a)
   }
 }
@@ -91,16 +89,6 @@ function parse_doc(doc) {
   }
 }
 
-/**
- * @param {DocumentComponents} doc_components
- */
-function clean_doc(doc, doc_components) {
-  const body = doc.body;
-
-  removeAllChildNodes(body)
-  body.appendChild(doc_components.login_stuff)
-  body.appendChild(doc_components.main_content)
-}
 /**
  * Preps a doc for insertion (adding columns, etc)
  * 
@@ -179,7 +167,7 @@ class DocumentElement {
     delete this.children[url]
     this.selected_child = undefined
     console.log(Object.keys(this.children))
-    if (Object.keys(this.children).length !== 0){
+    if (Object.keys(this.children).length !== 0) {
       const children = Object.keys(this.children)
       this.selected_child = children[children.length - 1]
     }
@@ -209,6 +197,25 @@ class LevelFrame {
       this.doc_container,
       this.name_container
     ] = LevelFrame.createFrameElement();
+
+    let callback = (entries, observer) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting === true) {
+          console.log(`Entry ${entry.target.textContent} is now visible: ${entry.intersectionRatio}`)
+        } else {
+          console.log(`Entry ${entry.target.textContent} is now hidden: ${entry.intersectionRatio}`)
+        }
+      });
+    };
+
+    this.observer = new IntersectionObserver(callback, {
+      root: document.getElementById("boost-subcontainer"),
+      rootMargin: '0px',
+      threshold: 0.9
+    })
+
+    this.observer.observe(this.name_container)
+
     /** @type [string, OnTabClick, OnTabClick][] */
     this.tabs = []
   }
@@ -238,7 +245,7 @@ class LevelFrame {
    * @param {OnTabClick} cb_interact
    * @returns {Element}
    */
-    static createNameElement(name, active, cb_interact, cb_close) {
+  static createNameElement(name, active, cb_interact, cb_close) {
     const name_element_wrapper = document.createElement("div")
     name_element_wrapper.classList.add("boost-nameelement")
 
@@ -250,7 +257,7 @@ class LevelFrame {
 
     // truncate the length if longer than 10
     if (name.length > 20) {
-      name = `${name.slice(0,17)}...`
+      name = `${name.slice(0, 17)}...`
     }
 
     name_element.textContent = name
@@ -260,7 +267,7 @@ class LevelFrame {
     close_button.classList.add("boost-closebutton")
     close_button.addEventListener('click', cb_close)
     close_button.textContent = "x"
-    
+
     name_element_wrapper.appendChild(name_element)
     name_element_wrapper.appendChild(close_button)
 
@@ -301,6 +308,13 @@ class LevelFrame {
   getElemToDraw() {
     return this.elem
   }
+
+  /** Fully resets and clears out the frame. Makes a single frame reusable. */
+  clear() {
+    removeAllChildNodes(this.doc_container)
+    this.tabs = []
+    removeAllChildNodes(this.name_container)
+  }
 }
 
 /** 
@@ -315,22 +329,34 @@ class DocumentTree {
     this.active_root_doc = undefined
     /** @type Element */
     this.container = container
+    /** @type LevelFrame[] */
+    this.frames = []
   }
 
   /** 
    * Generates a tabbed frame that can have docs inserted.
    * 
+   * @param {number} i - the index of frame to access
    * @returns {LevelFrame} - 
   */
-  create_frame() {
-    return new LevelFrame();
+  get_clean_frame(i) {
+    if (this.frames.length > i) {
+      this.frames[i].clear();
+      console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
+      return this.frames[i]
+    } else {
+      while (this.frames.length < i) {
+        this.frames.push(new LevelFrame())
+      }
+      const last_frame = new LevelFrame()
+      this.frames.push(last_frame)
+      console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
+      return last_frame
+    }
   }
 
   /** Redraws the container from the current state */
   redraw_container() {
-    // Clear out the container
-    removeAllChildNodes(container)
-
     // If the stack is empty, draw the "nothing here" thing!
     if (this.root_docs.length == 0) {
       throw new Error("nothing here!")
@@ -342,7 +368,7 @@ class DocumentTree {
     // Draw each of the things!
 
     // Process root node seperately 
-    const root_frame = this.create_frame()
+    const root_frame = this.get_clean_frame(0)
     {
       const this_page = things_to_draw[0]
 
@@ -360,7 +386,7 @@ class DocumentTree {
     // Process every other node
     let prev_frame = root_frame;
     for (let i = 1; i < things_to_draw.length; i++) {
-      const this_frame = this.create_frame()
+      const this_frame = this.get_clean_frame(i)
       const this_page = things_to_draw[i]
       const parent_doc = things_to_draw[i - 1]
 
