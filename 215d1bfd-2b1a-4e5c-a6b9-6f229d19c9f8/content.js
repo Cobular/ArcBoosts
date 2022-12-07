@@ -100,7 +100,7 @@ function parse_doc(doc) {
  * @returns {[string, Element]}
  */
 function prep_doc(doc, url) {
-  const title = doc.getElementsByClassName('firstHeading')[0].textContent
+  const title = doc.getElementsByClassName('mw-page-title-main')[0].textContent
   doc.setAttribute("org-source", url)
 
   return [title, doc]
@@ -175,6 +175,7 @@ class DocumentElement {
       this.selected_child = children[children.length - 1]
     }
   }
+  
 
   setSelectedDocument(child_url) {
     this.selected_child = child_url
@@ -555,13 +556,12 @@ function first_time_setup(doc, search) {
   header_text.id = "boost-headertext"
   header_text.innerHTML = '<span class="boost-infinite">Infinite</span> Wikipedia'
   header.appendChild(header_text)
-  header.appendChild(search)
+  console.log(search)
+
+  const search_box = search.querySelector("#p-search")
+  header.appendChild(search_box)
 
 
-  for (child of search.children) {
-    if (child.id != "p-search")
-      child.remove()
-  }
   big_container.appendChild(header)
 
   let sub_container = doc.createElement("div");
