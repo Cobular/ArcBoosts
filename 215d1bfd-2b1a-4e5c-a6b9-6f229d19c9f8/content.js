@@ -10,6 +10,7 @@ async function processClick(elem, url) {
     parent_url = parent.getAttribute("org-source")
   }
 
+
   const resp = await fetch(url)
 
   const htmlString = await resp.text();
@@ -28,22 +29,16 @@ async function processClick(elem, url) {
 // Link interception logic - https://stackoverflow.com/a/33616981
 async function interceptClickEvent(e) {
   async function process_link(link) {
-    /** @type string */
-    let href = link.getAttribute('href');
+    href = link.getAttribute('href');
 
-    if (href.startsWith("#"))
-      console.error("Found an internal page link, need to figure out how to scroll")
-
-    // Strip off the tag on the end (the tag on the end breaks shit)
-    href = href.split("#")[0]
-
+    //put your logic here...
     if (true) {
       e.preventDefault();
       await processClick(link, href)
       //tell the browser not to respond to the link click
     }
   }
-
+  var href;
   var target = e.target || e.srcElement;
   if (target.tagName === 'A') {
     process_link(target)
@@ -391,7 +386,10 @@ class DocumentTree {
         this_element_parent.addChild(this_url, wrapped_doc)
         this_element_parent.setSelectedDocument(this_url)
       } else {
-        throw Error("Tried to insert an element with no parent!")
+        this.root_docs[this_url] = wrapped_doc;
+        this.active_root_doc = this_url;
+
+        // throw Error("Tried to insert an element with no parent!")
       }
 
       this.redraw_container()
@@ -450,4 +448,5 @@ const doc_tree = new DocumentTree(container)
 
 
 doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
+
 

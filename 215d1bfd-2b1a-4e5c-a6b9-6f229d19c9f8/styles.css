@@ -58,6 +58,8 @@ body {
   border-top: 0px;
 
   flex: 0 0 75ch;
+  max-width: 75ch;
+  width: 75ch;
 }
 
 #boost-header {
