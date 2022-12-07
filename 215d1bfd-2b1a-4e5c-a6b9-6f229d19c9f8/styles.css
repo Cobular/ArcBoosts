@@ -89,8 +89,14 @@ body {
 .name_strip {
   text-orientation:sideways;
   writing-mode: vertical-lr;
+  display: flex;
+  flex-direction: row;
   padding: 12px;
   padding-top: 40px;
+}
+
+.boost-nameelement {
+  cursor: pointer;
 }
 
 .page_parent {

@@ -301,16 +301,44 @@ class DocumentTree {
     }
 
     const things_to_draw = this.root_docs[this.active_root_doc].getActiveSubtree()
-    console.log({things_to_draw, things_len: things_to_draw.length})
+
     // Draw each of the things!
-    for (let i = 0; i < things_to_draw.length; i++) {
+
+    // Process root node seperately 
+    const root_frame = this.create_frame()
+    {
+      const this_page = things_to_draw[0]
+
+      for (const root_node of Object.values(this.root_docs)) {
+        root_frame.addTab(root_node.title, () => {
+          active_root_doc = root_node.url
+          this.redraw_container()
+        })
+      }
+
+      root_frame.setContents(this_page.doc)
+      container.appendChild(root_frame.getElemToDraw())
+    }
+
+    // Process every other node
+    let prev_frame = root_frame;
+    for (let i = 1; i < things_to_draw.length; i++) {
       const this_frame = this.create_frame()
       const this_page = things_to_draw[i]
+      const parent_doc = things_to_draw[i-1]
 
-      this_frame.addTab(this_page.title, () => console.log("clicked!"))
+      for (const sibling_node of Object.values(parent_doc.children)) {
+        this_frame.addTab(sibling_node.title, () => {
+          parent_doc.setSelectedDocument(sibling_node.url)
+          this.redraw_container()
+        })
+      }
+
       this_frame.setContents(this_page.doc)
 
       container.appendChild(this_frame.getElemToDraw())
+
+      prev_frame = this_frame
     }
   }
 
@@ -355,9 +383,9 @@ class DocumentTree {
       } else {
         throw Error("Tried to insert an element with no parent!")
       }
-    }
 
-    this.redraw_container()
+      this.redraw_container()
+    }
 
     this_doc.scrollIntoView({
       behavior: 'smooth'
