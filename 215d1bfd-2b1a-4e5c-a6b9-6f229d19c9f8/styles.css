@@ -98,6 +98,22 @@ body {
 
 .boost-nameelement {
   cursor: pointer;
+  display: flex;
+}
+
+.boost-closebutton {
+  transform: rotate(90deg);
+  text-decoration: none;
+  background-color: transparent;
+  border: 1px solid #a2a9b1;
+  border-radius: 4px;
+}
+.boost-closebutton:hover {
+  transform: rotate(90deg);
+  text-decoration: none;
+  background-color: rgba(1, 1, 1, 0.1);
+  border: 1px solid #a2a9b1;
+  border-radius: 4px;
 }
 
 .boost-active-nameelement {

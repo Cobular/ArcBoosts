@@ -175,11 +175,15 @@ class DocumentElement {
     this.children[url] = child
   }
 
-  removeChild(url) {
+  removeChildByUrl(url) {
     delete this.children[url]
     this.selected_child = undefined
-    if (Object.keys(this.children).length !== 0)
-      this.selected_child = Object.keys(this.children)[-1]
+    console.log(Object.keys(this.children))
+    if (Object.keys(this.children).length !== 0){
+      const children = Object.keys(this.children)
+      this.selected_child = children[children.length - 1]
+    }
+    console.log(this)
   }
 
   setSelectedDocument(child_url) {
@@ -234,11 +238,21 @@ class LevelFrame {
    * @param {OnTabClick} cb_interact
    * @returns {Element}
    */
-  static createNameElement(name, active, cb_interact, cb_close) {
-    const name_element = document.createElement("h3")
-    name_element.classList.add("boost-nameelement")
+    static createNameElement(name, active, cb_interact, cb_close) {
+    const name_element_wrapper = document.createElement("div")
+    name_element_wrapper.classList.add("boost-nameelement")
+
     if (active === true)
-      name_element.classList.add("boost-active-nameelement")
+      name_element_wrapper.classList.add("boost-active-nameelement")
+
+
+    const name_element = document.createElement("h3")
+
+    // truncate the length if longer than 10
+    if (name.length > 20) {
+      name = `${name.slice(0,17)}...`
+    }
+    
     name_element.textContent = name
     name_element.addEventListener('click', cb_interact)
 
@@ -246,9 +260,11 @@ class LevelFrame {
     close_button.classList.add("boost-closebutton")
     close_button.addEventListener('click', cb_close)
     close_button.textContent = "x"
-    name_element.appendChild(close_button)
+    
+    name_element_wrapper.appendChild(name_element)
+    name_element_wrapper.appendChild(close_button)
 
-    return name_element
+    return name_element_wrapper
   }
 
   /**
@@ -354,7 +370,7 @@ class DocumentTree {
           this.redraw_container()
         }
         const close = () => {
-          parent_doc.removeChild(sibling_node.url)
+          parent_doc.removeChildByUrl(sibling_node.url)
           this.redraw_container()
         }
 
