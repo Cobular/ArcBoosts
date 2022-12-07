@@ -143,9 +143,10 @@ class DocumentElement {
   */
   getActiveSubtree() {
     // If there is no selected child, return undefined.
-    if (this.selected_child === undefined)
+    if (this.selected_child === undefined || Object.keys(this.children).length === 0) {
+      this.selected_child = undefined;
       return [this];
-
+    }
     // Otherwise, return a ref to the currently selected child.
     return [this, ...this.children[this.selected_child].getActiveSubtree()]
   }
@@ -172,6 +173,13 @@ class DocumentElement {
 
   addChild(url, child) {
     this.children[url] = child
+  }
+
+  removeChild(url) {
+    delete this.children[url]
+    this.selected_child = undefined
+    if (Object.keys(this.children).length !== 0)
+      this.selected_child = Object.keys(this.children)[-1]
   }
 
   setSelectedDocument(child_url) {
@@ -226,13 +234,20 @@ class LevelFrame {
    * @param {OnTabClick} cb_interact
    * @returns {Element}
    */
-  static createNameElement(name, active, cb_interact) {
+  static createNameElement(name, active, cb_interact, cb_close) {
     const name_element = document.createElement("h3")
     name_element.classList.add("boost-nameelement")
     if (active === true)
       name_element.classList.add("boost-active-nameelement")
     name_element.textContent = name
     name_element.addEventListener('click', cb_interact)
+
+    const close_button = document.createElement("button")
+    close_button.classList.add("boost-closebutton")
+    close_button.addEventListener('click', cb_close)
+    close_button.textContent = "x"
+    name_element.appendChild(close_button)
+
     return name_element
   }
 
@@ -256,7 +271,7 @@ class LevelFrame {
     for (let tab of this.tabs) {
       this.name_container.appendChild(
         LevelFrame.createNameElement(
-          tab[0], tab[0] === active_tab_name, tab[1]
+          tab[0], tab[0] === active_tab_name, tab[1], tab[2]
         )
       )
     }
@@ -305,7 +320,8 @@ class DocumentTree {
       throw new Error("nothing here!")
     }
 
-    const things_to_draw = this.root_docs[this.active_root_doc].getActiveSubtree()
+    const this_root_doc = this.root_docs[this.active_root_doc]
+    const things_to_draw = this_root_doc.getActiveSubtree()
 
     // Draw each of the things!
 
@@ -332,11 +348,17 @@ class DocumentTree {
       const this_page = things_to_draw[i]
       const parent_doc = things_to_draw[i - 1]
 
-      for (const sibling_node of Object.values(parent_doc.children)) {        
-        this_frame.addTab(sibling_node.title, this_page.title, () => {
+      for (const sibling_node of Object.values(parent_doc.children)) {
+        const select = () => {
           parent_doc.setSelectedDocument(sibling_node.url)
           this.redraw_container()
-        })
+        }
+        const close = () => {
+          parent_doc.removeChild(sibling_node.url)
+          this.redraw_container()
+        }
+
+        this_frame.addTab(sibling_node.title, this_page.title, select, close)
       }
 
       this_frame.setContents(this_page.doc)
@@ -388,8 +410,6 @@ class DocumentTree {
       } else {
         this.root_docs[this_url] = wrapped_doc;
         this.active_root_doc = this_url;
-
-        // throw Error("Tried to insert an element with no parent!")
       }
 
       this.redraw_container()
