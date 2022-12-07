@@ -10,6 +10,7 @@ async function processClick(elem, url) {
     parent_url = parent.getAttribute("org-source")
   }
 
+
   const resp = await fetch(url)
 
   const htmlString = await resp.text();
@@ -107,7 +108,6 @@ function clean_doc(doc, doc_components) {
  * @returns {[string, Element]}
  */
 function prep_doc(doc, url) {
-  console.log(url)
   const title = doc.getElementsByClassName('firstHeading')[0].textContent
   doc.setAttribute("org-source", url)
 
@@ -226,9 +226,11 @@ class LevelFrame {
    * @param {OnTabClick} cb_interact
    * @returns {Element}
    */
-  static createNameElement(name, cb_interact) {
+  static createNameElement(name, active, cb_interact) {
     const name_element = document.createElement("h3")
     name_element.classList.add("boost-nameelement")
+    if (active === true)
+      name_element.classList.add("boost-active-nameelement")
     name_element.textContent = name
     name_element.addEventListener('click', cb_interact)
     return name_element
@@ -247,13 +249,16 @@ class LevelFrame {
    * @param {OnTabClick} cb_interact
    * @param {OnTabClick} cb_close
    */
-  addTab(name, cb_interact, cb_close) {
+  addTab(name, active_tab_name, cb_interact, cb_close) {
     this.tabs.push([name, cb_interact, cb_close])
 
-    console.log({tabs_name: name})
     removeAllChildNodes(this.name_container)
     for (let tab of this.tabs) {
-      this.name_container.appendChild(LevelFrame.createNameElement(tab[0], tab[1]))
+      this.name_container.appendChild(
+        LevelFrame.createNameElement(
+          tab[0], tab[0] === active_tab_name, tab[1]
+        )
+      )
     }
   }
 
@@ -310,8 +315,8 @@ class DocumentTree {
       const this_page = things_to_draw[0]
 
       for (const root_node of Object.values(this.root_docs)) {
-        root_frame.addTab(root_node.title, () => {
-          active_root_doc = root_node.url
+        root_frame.addTab(root_node.title, this_page.title, () => {
+          this.active_root_doc = root_node.url
           this.redraw_container()
         })
       }
@@ -325,10 +330,10 @@ class DocumentTree {
     for (let i = 1; i < things_to_draw.length; i++) {
       const this_frame = this.create_frame()
       const this_page = things_to_draw[i]
-      const parent_doc = things_to_draw[i-1]
+      const parent_doc = things_to_draw[i - 1]
 
-      for (const sibling_node of Object.values(parent_doc.children)) {
-        this_frame.addTab(sibling_node.title, () => {
+      for (const sibling_node of Object.values(parent_doc.children)) {        
+        this_frame.addTab(sibling_node.title, this_page.title, () => {
           parent_doc.setSelectedDocument(sibling_node.url)
           this.redraw_container()
         })
@@ -363,15 +368,15 @@ class DocumentTree {
   insert_doc(this_doc, this_url, found_on_page_url) {
     // First, see if this element itself exists.
     const this_element_already_exists = this.root_docs[this.active_root_doc].findElementInSubtree(this_url)
-    
+
     if (this_element_already_exists !== undefined) {
       console.log("existing")
     } else {
       // The element doesn't already exist, so we need to figure out where to put it!
-      
+
       // Search through open docs to see if we can find the parent
       const this_element_parent = this.root_docs[this.active_root_doc].findElementInSubtree(found_on_page_url)
-      
+
       // Clean up the doc for presentation
       const [title, doc] = prep_doc(this_doc, this_url)
       const wrapped_doc = new DocumentElement(doc, this_url, title)

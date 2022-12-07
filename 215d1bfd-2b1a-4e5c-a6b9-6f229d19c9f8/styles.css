@@ -99,6 +99,10 @@ body {
   cursor: pointer;
 }
 
+.boost-active-nameelement {
+  text-decoration: underline;
+}
+
 .page_parent {
   display: flex;
   flex-direction: row;
