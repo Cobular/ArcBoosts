@@ -252,7 +252,7 @@ class LevelFrame {
     if (name.length > 20) {
       name = `${name.slice(0,17)}...`
     }
-    
+
     name_element.textContent = name
     name_element.addEventListener('click', cb_interact)
 
@@ -460,7 +460,7 @@ function first_time_setup(doc, search) {
   header.id = "boost-header"
   const header_text = document.createElement("h1")
   header_text.id = "boost-headertext"
-  header_text.textContent = "Infinite Wikipedia"
+  header_text.innerHTML = '<span class="boost-infinite">Infinite</span> Wikipedia'
   header.appendChild(header_text)
   header.appendChild(search)
 

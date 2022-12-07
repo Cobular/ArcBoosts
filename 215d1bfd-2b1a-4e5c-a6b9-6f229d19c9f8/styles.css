@@ -2,6 +2,29 @@ body {
   overscroll-behavior: none;
 }
 
+@keyframes move-bg {
+  to {
+    background-position: var(--bg-size) 0;
+  }
+}
+
+.boost-infinite {
+  --bg-size: 400%;
+  --color-one: rgb(55, 236, 146);
+  --color-two: rgb(134, 123, 228);
+  background: linear-gradient(
+                90deg,
+                var(--color-one),
+                var(--color-two),
+                var(--color-one)
+              ) 0 0 / var(--bg-size) 100%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-weight: 600;
+  animation: move-bg 30s infinite linear;
+}
+
 .mw-body  {
   margin-left: 0 !important;
   flex: 1;
