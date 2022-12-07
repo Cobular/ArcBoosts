@@ -1,5 +1,5 @@
 // Alternate link click logic
-async function processClick(elem, url) {
+async function processClick(elem, url_string) {
   const parent = elem.closest("[org-source]");
 
   let parent_url;
@@ -10,7 +10,10 @@ async function processClick(elem, url) {
     parent_url = parent.getAttribute("org-source")
   }
 
-  const resp = await fetch(url)
+  const url_obj = new URL(url_string, window.location.origin)
+  url_obj.searchParams.append("useskin", "vector")
+
+  const resp = await fetch(url_obj)
 
   const htmlString = await resp.text();
   const parser = new DOMParser();
@@ -18,7 +21,7 @@ async function processClick(elem, url) {
 
   const parsed = parse_doc(htmlDoc)
 
-  doc_tree.insert_doc(parsed.main_content, url, parent_url)
+  doc_tree.insert_doc(parsed.main_content, url_string, parent_url)
 
   parsed.main_content.scrollIntoView({
     behavior: 'smooth',
