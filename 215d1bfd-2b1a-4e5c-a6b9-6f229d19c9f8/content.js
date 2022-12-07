@@ -147,7 +147,7 @@ class DocumentElement {
       return [this];
 
     // Otherwise, return a ref to the currently selected child.
-    return [this, ...this.children[selected_child].getActiveSubtree()]
+    return [this, ...this.children[this.selected_child].getActiveSubtree()]
   }
 
   /** Tries to find an element by url in the subtree
@@ -172,6 +172,10 @@ class DocumentElement {
 
   addChild(url, child) {
     this.children[url] = child
+  }
+
+  setSelectedDocument(child_url) {
+    this.selected_child = child_url
   }
 }
 
@@ -210,6 +214,7 @@ class LevelFrame {
     frame.appendChild(name_panel)
 
     const document_container = document.createElement("div")
+    document_container.classList.add("scroll-container")
     frame.appendChild(document_container)
 
     return [frame, document_container, name_panel]
@@ -245,7 +250,7 @@ class LevelFrame {
   addTab(name, cb_interact, cb_close) {
     this.tabs.push([name, cb_interact, cb_close])
 
-    console.log(name)
+    console.log({tabs_name: name})
     removeAllChildNodes(this.name_container)
     for (let tab of this.tabs) {
       this.name_container.appendChild(LevelFrame.createNameElement(tab[0], tab[1]))
@@ -274,8 +279,6 @@ class DocumentTree {
     this.active_root_doc = undefined
     /** @type Element */
     this.container = container
-    /** @type LevelFrame[] */
-    this.frames = []
   }
 
   /** 
@@ -298,17 +301,11 @@ class DocumentTree {
     }
 
     const things_to_draw = this.root_docs[this.active_root_doc].getActiveSubtree()
-
+    console.log({things_to_draw, things_len: things_to_draw.length})
     // Draw each of the things!
     for (let i = 0; i < things_to_draw.length; i++) {
-      let this_frame = this.frames[i];
+      const this_frame = this.create_frame()
       const this_page = things_to_draw[i]
-
-      if (this_frame === undefined) {
-        const new_frame = this.create_frame()
-        this.frames.push(new_frame)
-        this_frame = new_frame
-      }
 
       this_frame.addTab(this_page.title, () => console.log("clicked!"))
       this_frame.setContents(this_page.doc)
@@ -338,6 +335,7 @@ class DocumentTree {
   insert_doc(this_doc, this_url, found_on_page_url) {
     // First, see if this element itself exists.
     const this_element_already_exists = this.root_docs[this.active_root_doc].findElementInSubtree(this_url)
+    
     if (this_element_already_exists !== undefined) {
       console.log("existing")
     } else {
@@ -353,6 +351,7 @@ class DocumentTree {
       if (this_element_parent !== undefined) {
         // append after the parent
         this_element_parent.addChild(this_url, wrapped_doc)
+        this_element_parent.setSelectedDocument(this_url)
       } else {
         throw Error("Tried to insert an element with no parent!")
       }
