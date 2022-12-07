@@ -21,10 +21,10 @@ async function processClick(elem, url) {
   doc_tree.insert_doc(parsed.main_content, url, parent_url)
 
   parsed.main_content.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center'
-    })
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  })
 }
 
 // Link interception logic - https://stackoverflow.com/a/33616981
@@ -195,7 +195,7 @@ class LevelFrame {
       this.elem,
       this.doc_container,
       this.name_container,
-      
+
       this.name_parent
     ] = LevelFrame.createFrameElement();
 
@@ -205,15 +205,15 @@ class LevelFrame {
           this.name_container.classList.remove("boost-tabs-hover-left")
           this.name_container.classList.remove("boost-tabs-hover-right")
         } else {
-          if (entry.boundingClientRect.x < 0) 
+          if (entry.boundingClientRect.x < 0)
             this.name_container.classList.add("boost-tabs-hover-left")
 
-          if (entry.boundingClientRect.x + entry.boundingClientRect.width > window.innerWidth) 
+          if (entry.boundingClientRect.x + entry.boundingClientRect.width > window.innerWidth)
             this.name_container.classList.add("boost-tabs-hover-right")
         }
       });
     };
-    
+
 
     this.observer = new IntersectionObserver(callback, {
       root: document.getElementById("boost-subcontainer"),
@@ -262,7 +262,6 @@ class LevelFrame {
     if (active === true)
       name_element_wrapper.classList.add("boost-active-nameelement")
 
-
     const name_element = document.createElement("h3")
 
     // truncate the length if longer than 10
@@ -272,14 +271,15 @@ class LevelFrame {
 
     name_element.textContent = name
     name_element.addEventListener('click', cb_interact)
-
-    const close_button = document.createElement("button")
-    close_button.classList.add("boost-closebutton")
-    close_button.addEventListener('click', cb_close)
-    close_button.textContent = "x"
-
     name_element_wrapper.appendChild(name_element)
-    name_element_wrapper.appendChild(close_button)
+
+    if (cb_close !== undefined) {
+      const close_button = document.createElement("button")
+      close_button.classList.add("boost-closebutton")
+      close_button.addEventListener('click', cb_close)
+      close_button.textContent = "x"
+      name_element_wrapper.appendChild(close_button)
+    }
 
     return name_element_wrapper
   }
@@ -295,7 +295,7 @@ class LevelFrame {
    * 
    * @param {string} name
    * @param {OnTabClick} cb_interact
-   * @param {OnTabClick} cb_close
+   * @param {OnTabClick | undefined} cb_close - the callback to close this element. If undefined, don't render the x button!
    */
   addTab(name, active_tab_name, cb_interact, cb_close) {
     this.tabs.push([name, cb_interact, cb_close])
@@ -353,7 +353,7 @@ class DocumentTree {
     if (this.frames.length > i) {
       this.frames[i].clear();
       // console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
-      
+
       return [this.frames[i], false]
     } else {
       while (this.frames.length < i) {
@@ -362,7 +362,7 @@ class DocumentTree {
       const last_frame = new LevelFrame()
       this.frames.push(last_frame)
       // console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
-      
+
       return [last_frame, true]
     }
   }
@@ -393,9 +393,8 @@ class DocumentTree {
     {
       const this_page = things_to_draw[0]
 
-      for (const root_node of Object.values(this.root_docs)) {
-      const select = () => {
-          console.log("Clicked!")
+      Object.values(this.root_docs).forEach(function (root_node, i) {
+        const select_root = function() {
           this.active_root_doc = root_node.url
           this.redraw_container()
           root_frame.elem.scrollIntoView({
@@ -403,24 +402,32 @@ class DocumentTree {
             block: 'center',
             inline: 'center'
           })
-      }
-      const close = () => {
-        // TODO: fixme
-        this.removeRootNodeByURL(root_node.url)
-        this.redraw_container()
-      }
+        }.bind(this)
 
-        root_frame.addTab(root_node.title, this_page.title, select, close)
-      }
+        const close_root = function () {
+          console.log(this)
+          this.removeRootNodeByURL(root_node.url)
+          this.redraw_container()
+        }.bind(this)
+
+        root_frame.addTab(
+          root_node.title,
+          this_page.title,
+          select_root,
+          i === 0 ? undefined : close_root
+        )
+      }.bind(this))
 
       root_frame.setContents(this_page.doc)
       if (should_append === true)
         container.appendChild(root_frame.getElemToDraw())
     }
 
+    let i;
+
     // Process every other node
     let prev_frame = root_frame;
-    for (let i = 1; i < things_to_draw.length; i++) {
+    for (i = 1; i < things_to_draw.length; i++) {
       const [this_frame, should_append] = this.get_clean_frame(i)
       const this_page = things_to_draw[i]
       const parent_doc = things_to_draw[i - 1]
@@ -453,6 +460,14 @@ class DocumentTree {
       this_frame.setContents(this_page.doc)
 
       prev_frame = this_frame
+    }
+
+    // Now we need to clean up extra frames using i
+    while (this.frames.length > i) {
+      const frame = this.frames.pop()
+      frame.elem.remove()
+      console.log("removed frame")
+
     }
   }
 
