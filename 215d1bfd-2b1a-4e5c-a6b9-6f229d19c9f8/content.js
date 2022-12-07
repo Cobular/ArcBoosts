@@ -22,8 +22,10 @@ async function processClick(elem, url) {
   doc_tree.insert_doc(parsed.main_content, url, parent_url)
 
   parsed.main_content.scrollIntoView({
-    behavior: 'smooth'
-  })
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'center'
+    })
 }
 
 // Link interception logic - https://stackoverflow.com/a/33616981
@@ -337,13 +339,14 @@ class DocumentTree {
    * Generates a tabbed frame that can have docs inserted.
    * 
    * @param {number} i - the index of frame to access
-   * @returns {LevelFrame} - 
+   * @returns {LevelFrame, bool} - The frame plus if this frame should be appended to the doc (only if it was new)
   */
   get_clean_frame(i) {
     if (this.frames.length > i) {
       this.frames[i].clear();
       console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
-      return this.frames[i]
+      
+      return [this.frames[i], false]
     } else {
       while (this.frames.length < i) {
         this.frames.push(new LevelFrame())
@@ -351,7 +354,8 @@ class DocumentTree {
       const last_frame = new LevelFrame()
       this.frames.push(last_frame)
       console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
-      return last_frame
+      
+      return [last_frame, true]
     }
   }
 
@@ -368,7 +372,7 @@ class DocumentTree {
     // Draw each of the things!
 
     // Process root node seperately 
-    const root_frame = this.get_clean_frame(0)
+    const [root_frame, should_append] = this.get_clean_frame(0)
     {
       const this_page = things_to_draw[0]
 
@@ -380,16 +384,19 @@ class DocumentTree {
       }
 
       root_frame.setContents(this_page.doc)
-      container.appendChild(root_frame.getElemToDraw())
+      console.log(should_append)
+      if (should_append === true)
+        container.appendChild(root_frame.getElemToDraw())
     }
 
     // Process every other node
     let prev_frame = root_frame;
     for (let i = 1; i < things_to_draw.length; i++) {
-      const this_frame = this.get_clean_frame(i)
+      const [this_frame, should_append] = this.get_clean_frame(i)
       const this_page = things_to_draw[i]
       const parent_doc = things_to_draw[i - 1]
 
+      // Do the tabs
       for (const sibling_node of Object.values(parent_doc.children)) {
         const select = () => {
           parent_doc.setSelectedDocument(sibling_node.url)
@@ -401,11 +408,14 @@ class DocumentTree {
         }
 
         this_frame.addTab(sibling_node.title, this_page.title, select, close)
+        console.log(should_append)
+        if (should_append === true)
+          container.appendChild(this_frame.getElemToDraw())
+
       }
 
+      // Write in the selected node content
       this_frame.setContents(this_page.doc)
-
-      container.appendChild(this_frame.getElemToDraw())
 
       prev_frame = this_frame
     }
@@ -458,7 +468,9 @@ class DocumentTree {
     }
 
     this_doc.scrollIntoView({
-      behavior: 'smooth'
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'center'
     })
   }
 }
