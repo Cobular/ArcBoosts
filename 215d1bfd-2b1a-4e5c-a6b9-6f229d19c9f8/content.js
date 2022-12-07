@@ -13,6 +13,13 @@ async function processClick(elem, url_string) {
   const url_obj = new URL(url_string, window.location.origin)
   url_obj.searchParams.append("useskin", "vector")
 
+  // check the ignorelist, if we find something open in a new tab and return
+  const should_not_process = should_ignore(url_obj.toString())
+
+  if (should_not_process) {
+    window.open(url_obj, '_blank')
+    return
+  }
   const resp = await fetch(url_obj)
 
   const htmlString = await resp.text();
@@ -178,7 +185,7 @@ class DocumentElement {
       this.selected_child = children[children.length - 1]
     }
   }
-  
+
 
   setSelectedDocument(child_url) {
     this.selected_child = child_url
@@ -401,7 +408,7 @@ class DocumentTree {
       const this_page = things_to_draw[0]
 
       Object.values(this.root_docs).forEach(function (root_node, i) {
-        const select_root = function() {
+        const select_root = function () {
           this.active_root_doc = root_node.url
           this.redraw_container()
           root_frame.elem.scrollIntoView({
@@ -574,28 +581,63 @@ function first_time_setup(doc, search) {
   return sub_container
 }
 
+/** 
+ * Use these to refuse to inject if we're on some meta pages
+ * @type string[]
+ */
+const ignorelist_url_components = [
+  "action=edit", "Encyclopedia"
+]
+
+/** Returns true if we should ignore a url, false if we should keep processing it */
+function should_ignore(url) {
+  console.log(url)
+  const aa = ignorelist_url_components.some(
+    function (ignorelist_url_component) {
+      return url.toLowerCase().includes(ignorelist_url_component.toLowerCase())
+    })
+  console.log(aa)
+  return aa
+}
+
+
+
+/** @returns {boolean} true if we should inject, false if not */
 function ensure_correct_url() {
-  const starting_url= new URL(window.location.href)
-  if (starting_url.searchParams.has('useskin')){
-    return
-    }
+  const starting_url = new URL(window.location.href)
+  const should_not_inject = should_ignore(window.location.href)
+
+  // If at least one of the ignorelist components was found, don't inject
+  if (should_not_inject === true)
+    return false
+
+  // Otherwise, if we have the right skin, inject
+  if (starting_url.searchParams.has('useskin'))
+    return true
+
+  // If not right skin, go to the right one
   starting_url.searchParams.delete("useskin")
   starting_url.searchParams.append("useskin", "vector")
   window.location.href = starting_url
+  // Return doesn't matter
 }
 
-document.documentElement.style.display = "none"
-ensure_correct_url()
-
+const should_inject = ensure_correct_url()
 
 let processed_doc, container, doc_tree
-window.addEventListener('load', function () {
-  processed_doc = parse_doc(document)
-  container = first_time_setup(document, processed_doc.search_tabs)
-  doc_tree = new DocumentTree(container)
+if (should_inject === true) {
+  document.documentElement.style.display = "none"
+  window.addEventListener('load', function () {
+    processed_doc = parse_doc(document)
+    container = first_time_setup(document, processed_doc.search_tabs)
+    doc_tree = new DocumentTree(container)
 
-  doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
-  document.documentElement.style.display = "unset"
-})
+    doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
+    document.documentElement.style.display = "unset"
+    document.documentElement.classList.add("injection")
+  })
+} else {
+  console.log("Skipping injection of infinite wikipedia because htis page is on the ignorelist")
+}
 
 
