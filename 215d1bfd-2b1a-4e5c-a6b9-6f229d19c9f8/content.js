@@ -100,10 +100,13 @@ function parse_doc(doc) {
  * @returns {[string, Element]}
  */
 function prep_doc(doc, url) {
-  const title = doc.getElementsByClassName('mw-page-title-main')[0].textContent
+  const title_elem = doc.getElementsByClassName('mw-first-heading')[0]
+
+  title_elem.querySelector(".mw-editsection")?.remove()
+
   doc.setAttribute("org-source", url)
 
-  return [title, doc]
+  return [title_elem.textContent, doc]
 }
 
 /** 

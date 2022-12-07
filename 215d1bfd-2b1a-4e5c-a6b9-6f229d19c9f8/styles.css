@@ -1,5 +1,6 @@
 body {
   overscroll-behavior: none;
+  overflow: hidden;
 }
 
 @keyframes move-bg {
@@ -34,7 +35,7 @@ body {
   padding-top: 10px !important;
 }
 
-#p-search {
+#right-navigation {
   margin-top: unset !important;
   margin-left: auto;
   background: white;
@@ -171,4 +172,3 @@ body {
 }
 
 
-b
