@@ -401,6 +401,12 @@ class DocumentTree {
         const select = () => {
           parent_doc.setSelectedDocument(sibling_node.url)
           this.redraw_container()
+
+          this_frame.elem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+          })
         }
         const close = () => {
           parent_doc.removeChildByUrl(sibling_node.url)
