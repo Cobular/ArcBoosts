@@ -1,13 +1,13 @@
 // Alternate link click logic
 async function processClick(elem, url) {
   const parent = elem.closest("[org-source]");
-  
+
   let parent_url;
   // If parent is null, it's probably from search
   if (parent === null) {
     parent_url = "search"
   } else {
-  parent_url = parent.getAttribute("org-source")
+    parent_url = parent.getAttribute("org-source")
   }
 
   const resp = await fetch(url)
@@ -104,50 +104,261 @@ function clean_doc(doc, doc_components) {
  * Preps a doc for insertion (adding columns, etc)
  * 
  * @param {Element} doc
+ * @returns {[string, Element]}
  */
-function prep_doc(doc) {
-  const title = doc.getElementsByClassName('firstHeading')[0]
-  const new_parent = document.createElement("div");
-  new_parent.classList.add("page_parent")
+function prep_doc(doc, url) {
+  console.log(url)
+  const title = doc.getElementsByClassName('firstHeading')[0].textContent
+  doc.setAttribute("org-source", url)
 
-  const name_panel = document.createElement("h3")
-  name_panel.classList.add("name_strip")
-
-  name_panel.textContent = title.textContent
-
-  new_parent.appendChild(name_panel)
-  new_parent.appendChild(doc)
-
-  return new_parent
+  return [title, doc]
 }
 
+/** 
+ * The data about some specific page, including the subtree.
+ * */
+class DocumentElement {
+  /**
+   * 
+   * @param {Element} page
+   * @param {string} url
+   * @param {string} title
+   */
+  constructor(page, url, title) {
+    /** @type Element */
+    this.doc = page
+    /** @type string */
+    this.url = url
+    /** @type string */
+    this.title = title
+    /** @type Object.<string, DocumentElement> */
+    this.children = {}
+    /** @type string */
+    this.selected_child = undefined
+  }
+
+  /** 
+   * Get the html elements of this and all child elements that should be made active
+   * @returns {DocumentElement[]}
+  */
+  getActiveSubtree() {
+    // If there is no selected child, return undefined.
+    if (this.selected_child === undefined)
+      return [this];
+
+    // Otherwise, return a ref to the currently selected child.
+    return [this, ...this.children[selected_child].getActiveSubtree()]
+  }
+
+  /** Tries to find an element by url in the subtree
+   * 
+   * @props {string} url
+   * @returns {DocumentElement | undefined}
+   */
+  findElementInSubtree(url) {
+    if (this.url === url)
+      return this
+    else {
+      if (this.children.length === 0)
+        return undefined
+      else {
+        const child_results = Object.values(this.children).map((child) => child.findElementInSubtree(url)).filter((e) => e !== undefined)
+        if (child_results.length > 0)
+          return child_results[0]
+        else return undefined
+      }
+    }
+  }
+
+  addChild(url, child) {
+    this.children[url] = child
+  }
+}
+
+/**
+ * A level in the displayed tree. Each one of these shows a single
+ * document, along with the tabs required to switch between other
+ * documents branching from this level.
+ * 
+ * @class
+ * @property {Element} elem
+ * @property {Element} doc_container - The slot where documents are inserted
+ * @property {Element} name_container - The slot where name tabs are inserted
+ * @property {[string, OnTabClick, OnTabClick][]} tabs
+ */
+class LevelFrame {
+  constructor() {
+    [
+      this.elem,
+      this.doc_container,
+      this.name_container
+    ] = LevelFrame.createFrameElement();
+    /** @type [string, OnTabClick, OnTabClick][] */
+    this.tabs = []
+  }
+
+  /** The element part of the constructor 
+   * 
+   * @returns {[Element, Element, Element]}
+  */
+  static createFrameElement() {
+    const frame = document.createElement('div')
+
+    frame.classList.add("page_parent")
+    const name_panel = document.createElement("div")
+    name_panel.classList.add("name_strip")
+    frame.appendChild(name_panel)
+
+    const document_container = document.createElement("div")
+    frame.appendChild(document_container)
+
+    return [frame, document_container, name_panel]
+  }
+
+  /** Creates a new name tab
+   * 
+   * @param {string} name
+   * @param {OnTabClick} cb_interact
+   * @returns {Element}
+   */
+  static createNameElement(name, cb_interact) {
+    const name_element = document.createElement("h3")
+    name_element.classList.add("boost-nameelement")
+    name_element.textContent = name
+    name_element.addEventListener('click', cb_interact)
+    return name_element
+  }
+
+  /**
+   * Callback that updates the state of the tree when a tab is clicked
+   * @typedef {function(): bool} OnTabClick
+   */
+
+  /** 
+   * Add a new tab to this item. 
+   * Needs the name and the callback that will update the tree when clicked. 
+   * 
+   * @param {string} name
+   * @param {OnTabClick} cb_interact
+   * @param {OnTabClick} cb_close
+   */
+  addTab(name, cb_interact, cb_close) {
+    this.tabs.push([name, cb_interact, cb_close])
+
+    console.log(name)
+    removeAllChildNodes(this.name_container)
+    for (let tab of this.tabs) {
+      this.name_container.appendChild(LevelFrame.createNameElement(tab[0], tab[1]))
+    }
+  }
+
+  setContents(page) {
+    this.doc_container.appendChild(page)
+  }
+
+  /** Returns the Element that should be drawn */
+  getElemToDraw() {
+    return this.elem
+  }
+}
+
+/** 
+ * The tree of documents currently open.
+ * */
 class DocumentTree {
+  // Docs is a recursive structure of DocumentElements
   constructor(container) {
-    self.docs = {}
-    self.container = container
+    /** @type Object.<string, DocumentElement> */
+    this.root_docs = {}
+    /** @type string */
+    this.active_root_doc = undefined
+    /** @type Element */
+    this.container = container
+    /** @type LevelFrame[] */
+    this.frames = []
+  }
+
+  /** 
+   * Generates a tabbed frame that can have docs inserted.
+   * 
+   * @returns {LevelFrame} - 
+  */
+  create_frame() {
+    return new LevelFrame();
+  }
+
+  /** Redraws the container from the current state */
+  redraw_container() {
+    // Clear out the container
+    removeAllChildNodes(container)
+
+    // If the stack is empty, draw the "nothing here" thing!
+    if (this.root_docs.length == 0) {
+      throw new Error("nothing here!")
+    }
+
+    const things_to_draw = this.root_docs[this.active_root_doc].getActiveSubtree()
+
+    // Draw each of the things!
+    for (let i = 0; i < things_to_draw.length; i++) {
+      let this_frame = this.frames[i];
+      const this_page = things_to_draw[i]
+
+      if (this_frame === undefined) {
+        const new_frame = this.create_frame()
+        this.frames.push(new_frame)
+        this_frame = new_frame
+      }
+
+      this_frame.addTab(this_page.title, () => console.log("clicked!"))
+      this_frame.setContents(this_page.doc)
+
+      container.appendChild(this_frame.getElemToDraw())
+    }
+  }
+
+  /**
+   * Insert a document at the root level. Used for search or for main page.
+   * 
+   * @param {Element} this_doc - the document we want to insert into the page
+   * @param {string} this_url - the URL of this document (needed to key everything)
+   */
+  insert_root(this_doc, this_url) {
+    // Clean up the doc for presentation
+    const [title, doc] = prep_doc(this_doc, this_url);
+
+    const wrapped_doc = new DocumentElement(doc, this_url, title)
+
+    this.root_docs[this_url] = wrapped_doc;
+    this.active_root_doc = this_url;
+
+    this.redraw_container()
   }
 
   insert_doc(this_doc, this_url, found_on_page_url) {
     // First, see if this element itself exists.
-    if (this_url in self.docs) {
+    const this_element_already_exists = this.root_docs[this.active_root_doc].findElementInSubtree(this_url)
+    if (this_element_already_exists !== undefined) {
       console.log("existing")
     } else {
-      const doc_preped = prep_doc(this_doc)
-      // If it doesn't, let's insert after the parent
-      if (found_on_page_url in self.docs) {
+      // The element doesn't already exist, so we need to figure out where to put it!
+      
+      // Search through open docs to see if we can find the parent
+      const this_element_parent = this.root_docs[this.active_root_doc].findElementInSubtree(found_on_page_url)
+      
+      // Clean up the doc for presentation
+      const [title, doc] = prep_doc(this_doc, this_url)
+      const wrapped_doc = new DocumentElement(doc, this_url, title)
+
+      if (this_element_parent !== undefined) {
         // append after the parent
-        const parent_page = self.docs[found_on_page_url];
-        parent_page.after(doc_preped)
-
+        this_element_parent.addChild(this_url, wrapped_doc)
       } else {
-        // append to end of doc
-        self.container.appendChild(doc_preped)
+        throw Error("Tried to insert an element with no parent!")
       }
-
-      // Handle the setup that happens on all inserts
-      doc_preped.setAttribute("org-source", this_url)
-      self.docs[this_url] = doc_preped
     }
+
+    this.redraw_container()
 
     this_doc.scrollIntoView({
       behavior: 'smooth'
@@ -180,7 +391,7 @@ function first_time_setup(doc, search) {
   header_text.id = "boost-headertext"
   header_text.textContent = "Infinite Wikipedia"
   header.appendChild(header_text)
-    header.appendChild(search)
+  header.appendChild(search)
 
 
   for (child of search.children) {
@@ -201,5 +412,5 @@ const container = first_time_setup(document, processed_doc.search_tabs)
 const doc_tree = new DocumentTree(container)
 
 
-doc_tree.insert_doc(processed_doc.main_content, window.location.pathname, undefined)
+doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
 
