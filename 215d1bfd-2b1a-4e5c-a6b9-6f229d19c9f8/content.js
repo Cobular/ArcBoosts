@@ -10,7 +10,6 @@ async function processClick(elem, url) {
     parent_url = parent.getAttribute("org-source")
   }
 
-
   const resp = await fetch(url)
 
   const htmlString = await resp.text();
@@ -29,16 +28,22 @@ async function processClick(elem, url) {
 // Link interception logic - https://stackoverflow.com/a/33616981
 async function interceptClickEvent(e) {
   async function process_link(link) {
-    href = link.getAttribute('href');
+    /** @type string */
+    let href = link.getAttribute('href');
 
-    //put your logic here...
+    if (href.startsWith("#"))
+      console.error("Found an internal page link, need to figure out how to scroll")
+
+    // Strip off the tag on the end (the tag on the end breaks shit)
+    href = href.split("#")[0]
+
     if (true) {
       e.preventDefault();
       await processClick(link, href)
       //tell the browser not to respond to the link click
     }
   }
-  var href;
+
   var target = e.target || e.srcElement;
   if (target.tagName === 'A') {
     process_link(target)
