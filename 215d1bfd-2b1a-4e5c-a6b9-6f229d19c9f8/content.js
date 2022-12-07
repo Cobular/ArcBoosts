@@ -529,7 +529,9 @@ class DocumentTree {
 }
 
 
-/** Fully cleans the document then adds our scrolling chrome 
+/** 
+ * 
+ * Fully cleans the document then adds our scrolling chrome 
  * 
  * @param {Document} doc
  * @param {Element} upper_chrome
@@ -569,11 +571,28 @@ function first_time_setup(doc, search) {
   return sub_container
 }
 
-const processed_doc = parse_doc(document)
-const container = first_time_setup(document, processed_doc.search_tabs)
-const doc_tree = new DocumentTree(container)
+function ensure_correct_url() {
+  const starting_url= new URL(window.location.href)
+  if (starting_url.searchParams.has('useskin')){
+    return
+    }
+  starting_url.searchParams.delete("useskin")
+  starting_url.searchParams.append("useskin", "vector")
+  window.location.href = starting_url
+}
+
+document.documentElement.style.display = "none"
+ensure_correct_url()
 
 
-doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
+let processed_doc, container, doc_tree
+window.addEventListener('load', function () {
+  processed_doc = parse_doc(document)
+  container = first_time_setup(document, processed_doc.search_tabs)
+  doc_tree = new DocumentTree(container)
+
+  doc_tree.insert_root(processed_doc.main_content, window.location.pathname, undefined)
+  document.documentElement.style.display = "unset"
+})
 
 
