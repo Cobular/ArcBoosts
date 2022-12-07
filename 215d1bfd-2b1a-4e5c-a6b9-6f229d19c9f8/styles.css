@@ -63,6 +63,7 @@ body {
   flex-direction: row;
   height: calc(100vh - 60px);
 
+  overflow-y: clip;
   overflow-x: scroll;
 }
 
@@ -110,6 +111,10 @@ body {
   border-left: 0px;
 }
 
+.name-strip-parent {
+  min-width: 48px;
+}
+
 .name_strip {
   text-orientation:sideways;
   writing-mode: vertical-lr;
@@ -118,6 +123,19 @@ body {
   padding: 12px;
   padding-top: 40px;
   min-width: 23px;
+  height: calc(100vh - 70px);
+  z-index: 10;
+  background-color: white;
+}
+
+.boost-tabs-hover-left {
+  position: absolute;
+  left: 0px;
+}
+
+.boost-tabs-hover-right {
+  position: absolute;
+  right: 0px;
 }
 
 .boost-nameelement {
@@ -148,3 +166,6 @@ body {
   display: flex;
   flex-direction: row;
 }
+
+
+b

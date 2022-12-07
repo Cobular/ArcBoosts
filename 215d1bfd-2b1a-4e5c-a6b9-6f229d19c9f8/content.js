@@ -10,7 +10,6 @@ async function processClick(elem, url) {
     parent_url = parent.getAttribute("org-source")
   }
 
-
   const resp = await fetch(url)
 
   const htmlString = await resp.text();
@@ -168,12 +167,10 @@ class DocumentElement {
   removeChildByUrl(url) {
     delete this.children[url]
     this.selected_child = undefined
-    console.log(Object.keys(this.children))
     if (Object.keys(this.children).length !== 0) {
       const children = Object.keys(this.children)
       this.selected_child = children[children.length - 1]
     }
-    console.log(this)
   }
 
   setSelectedDocument(child_url) {
@@ -197,26 +194,34 @@ class LevelFrame {
     [
       this.elem,
       this.doc_container,
-      this.name_container
+      this.name_container,
+      
+      this.name_parent
     ] = LevelFrame.createFrameElement();
 
     let callback = (entries, observer) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting === true) {
-          console.log(`Entry ${entry.target.textContent} is now visible: ${entry.intersectionRatio}`)
+          this.name_container.classList.remove("boost-tabs-hover-left")
+          this.name_container.classList.remove("boost-tabs-hover-right")
         } else {
-          console.log(`Entry ${entry.target.textContent} is now hidden: ${entry.intersectionRatio}`)
+          if (entry.boundingClientRect.x < 0) 
+            this.name_container.classList.add("boost-tabs-hover-left")
+
+          if (entry.boundingClientRect.x + entry.boundingClientRect.width > window.innerWidth) 
+            this.name_container.classList.add("boost-tabs-hover-right")
         }
       });
     };
+    
 
     this.observer = new IntersectionObserver(callback, {
       root: document.getElementById("boost-subcontainer"),
       rootMargin: '0px',
-      threshold: 0.9
+      threshold: 1
     })
 
-    this.observer.observe(this.name_container)
+    this.observer.observe(this.name_parent)
 
     /** @type [string, OnTabClick, OnTabClick][] */
     this.tabs = []
@@ -224,21 +229,24 @@ class LevelFrame {
 
   /** The element part of the constructor 
    * 
-   * @returns {[Element, Element, Element]}
+   * @returns {[Element, Element, Element, Element]} - the frame element, the document container element, the low level tab element, the tab element to observe
   */
   static createFrameElement() {
     const frame = document.createElement('div')
 
     frame.classList.add("page_parent")
     const name_panel = document.createElement("div")
+    const name_panel_parent = document.createElement("div")
+    name_panel_parent.classList.add("name-strip-parent")
     name_panel.classList.add("name_strip")
-    frame.appendChild(name_panel)
+    name_panel_parent.appendChild(name_panel)
+    frame.appendChild(name_panel_parent)
 
     const document_container = document.createElement("div")
     document_container.classList.add("scroll-container")
     frame.appendChild(document_container)
 
-    return [frame, document_container, name_panel]
+    return [frame, document_container, name_panel, name_panel_parent]
   }
 
   /** Creates a new name tab
@@ -344,7 +352,7 @@ class DocumentTree {
   get_clean_frame(i) {
     if (this.frames.length > i) {
       this.frames[i].clear();
-      console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
+      // console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
       
       return [this.frames[i], false]
     } else {
@@ -353,7 +361,7 @@ class DocumentTree {
       }
       const last_frame = new LevelFrame()
       this.frames.push(last_frame)
-      console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
+      // console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
       
       return [last_frame, true]
     }
@@ -384,7 +392,6 @@ class DocumentTree {
       }
 
       root_frame.setContents(this_page.doc)
-      console.log(should_append)
       if (should_append === true)
         container.appendChild(root_frame.getElemToDraw())
     }
@@ -414,7 +421,6 @@ class DocumentTree {
         }
 
         this_frame.addTab(sibling_node.title, this_page.title, select, close)
-        console.log(should_append)
         if (should_append === true)
           container.appendChild(this_frame.getElemToDraw())
 
