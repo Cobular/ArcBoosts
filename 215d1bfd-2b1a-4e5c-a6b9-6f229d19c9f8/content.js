@@ -1,6 +1,32 @@
-// Alternate link click logic
+/** 
+ * My custom link click logic
+ * 
+ * @param {Element} elem
+ * @param {string} url_string
+ */
 async function processClick(elem, url_string) {
   const parent = elem.closest("[org-source]");
+
+  // If an href has no length, then it's one of the
+  //  not-really-links that wikipedia uses to run javascript. 
+  // (see the subscribe tags)
+  // In this case, don't do anything and return
+  if (url_string === null || url_string == "") {
+    return
+  }
+
+  // If a link begins with a #, it's a scroll target, 
+  //  so try to scroll to that and return
+  if (url_string.startsWith("#")) {
+    // Wikipedia does some transforms IDs
+    const new_urlstring = url_string.replace("<", ".3C").replace(">", ".3E")
+    const target = parent.querySelector(`[id='${new_urlstring.replace("#", "")}']`)
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    })
+    return
+  }
 
   let parent_url;
   // If parent is null, it's probably from search
@@ -8,6 +34,22 @@ async function processClick(elem, url_string) {
     parent_url = "search"
   } else {
     parent_url = parent.getAttribute("org-source")
+  }
+
+  // Detect if the url is on wikipedia or not
+  // First, see if it's a relitave url by trying to cast it into a URL object.
+  // (if it doesn't have a hostname it can't by default)
+  try {
+    const external_url = new URL(url_string)
+    // If we get to here, it started with some hostname (not a relitave url)
+    
+    // We should treat this as an external url and open it in a new tab
+    window.open(external_url, "_blank")
+    
+    // Then we're done, return
+    return
+  } catch {
+    console.debug(`Failed to make external URL from ${url_string}`)
   }
 
   const url_obj = new URL(url_string, window.location.origin)
@@ -108,7 +150,12 @@ function parse_doc(doc) {
  */
 function prep_doc(doc, url) {
   const title_elem = doc.getElementsByClassName('mw-first-heading')[0]
-
+  
+  // The special place for Wikipedia to put indicators
+  // Will inject a copy link button here
+  const indicators = doc.getElementsByClassName("mw-indicators")
+  
+  
   title_elem.querySelector(".mw-editsection")?.remove()
 
   doc.setAttribute("org-source", url)
@@ -366,7 +413,7 @@ class DocumentTree {
   get_clean_frame(i) {
     if (this.frames.length > i) {
       this.frames[i].clear();
-      // console.log({"cleared and reloaded": this.frames, this_one: this.frames[i]})
+      console.debug({"cleared and reloaded": this.frames, this_one: this.frames[i]})
 
       return [this.frames[i], false]
     } else {
@@ -375,7 +422,7 @@ class DocumentTree {
       }
       const last_frame = new LevelFrame()
       this.frames.push(last_frame)
-      // console.log({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
+      console.debug({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
 
       return [last_frame, true]
     }
@@ -419,7 +466,6 @@ class DocumentTree {
         }.bind(this)
 
         const close_root = function () {
-          console.log(this)
           this.removeRootNodeByURL(root_node.url)
           this.redraw_container()
         }.bind(this)
@@ -449,10 +495,9 @@ class DocumentTree {
       // Do the tabs
       for (const sibling_node of Object.values(parent_doc.children)) {
         const select = () => {
-          console.log("Clicked!")
+          console.debug(`Tab ${sibling_node.textContent} clicked!`)
           parent_doc.setSelectedDocument(sibling_node.url)
           this.redraw_container()
-          console.log(this_frame.elem)
           this_frame.elem.scrollIntoView({
             behavior: 'smooth',
             block: 'center',
@@ -480,8 +525,7 @@ class DocumentTree {
     while (this.frames.length > i) {
       const frame = this.frames.pop()
       frame.elem.remove()
-      console.log("removed frame")
-
+      console.debug("removed a frame")
     }
   }
 
@@ -508,7 +552,7 @@ class DocumentTree {
     const this_element_already_exists = this.root_docs[this.active_root_doc].findElementInSubtree(this_url)
 
     if (this_element_already_exists !== undefined) {
-      console.log("existing")
+      console.debug("Clicked document is already in the tree")
     } else {
       // The element doesn't already exist, so we need to figure out where to put it!
 
@@ -566,7 +610,6 @@ function first_time_setup(doc, search) {
   header_text.id = "boost-headertext"
   header_text.innerHTML = '<span class="boost-infinite">Infinite</span> Wikipedia'
   header.appendChild(header_text)
-  console.log(search)
 
   const search_box = search.querySelector("#p-search")
   header.appendChild(search_box)
@@ -591,12 +634,11 @@ const ignorelist_url_components = [
 
 /** Returns true if we should ignore a url, false if we should keep processing it */
 function should_ignore(url) {
-  console.log(url)
   const aa = ignorelist_url_components.some(
     function (ignorelist_url_component) {
       return url.toLowerCase().includes(ignorelist_url_component.toLowerCase())
     })
-  console.log(aa)
+  console.debug(`Is url ${url} in the ignorelist? ${aa}`)
   return aa
 }
 
