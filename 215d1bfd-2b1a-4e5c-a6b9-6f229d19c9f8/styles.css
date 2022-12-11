@@ -194,6 +194,12 @@
   background: var(--title-gradient-vert);
 }
 
+.injection .boost-active-nameelement h3:hover::before {
+    background: var(--arc-palette-hover);
+}
+
+
+
 .injection .page_parent {
   display: flex;
   flex-direction: row;
@@ -206,11 +212,12 @@
   gap: 5px 
 }
 .injection .boost-copyindicator:hover {
-  background-color: black;
+  color: var(--arc-palette-foregroundSecondary);
 }
 
 .injection .boost-copyindicator {
   width: 20px;  
+  height: 20px;
   cursor: pointer;
   z-index: 10000;
 }
