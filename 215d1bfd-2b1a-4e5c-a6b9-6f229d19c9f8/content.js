@@ -42,10 +42,10 @@ async function processClick(elem, url_string) {
   try {
     const external_url = new URL(url_string)
     // If we get to here, it started with some hostname (not a relitave url)
-    
+
     // We should treat this as an external url and open it in a new tab
     window.open(external_url, "_blank")
-    
+
     // Then we're done, return
     return
   } catch {
@@ -62,13 +62,8 @@ async function processClick(elem, url_string) {
     window.open(url_obj, '_blank')
     return
   }
-  const resp = await fetch(url_obj)
-
-  const htmlString = await resp.text();
-  const parser = new DOMParser();
-  const htmlDoc = parser.parseFromString(htmlString, "text/html");
-
-  const parsed = parse_doc(htmlDoc)
+  
+  const parsed = await get_parsed_doc(url_obj)
 
   doc_tree.insert_doc(parsed.main_content, url_string, parent_url)
 
@@ -78,6 +73,129 @@ async function processClick(elem, url_string) {
     inline: 'center'
   })
 }
+
+async function get_parsed_doc(url) {
+  const resp = await fetch(url)
+
+  const htmlString = await resp.text();
+  const parser = new DOMParser();
+  const htmlDoc = parser.parseFromString(htmlString, "text/html");
+
+  return parse_doc(htmlDoc)
+}
+
+/** 
+ * Takes the data from the DocumentTree, JSON encodes it, 
+ * then compresses it, then base64 encodes it
+ * 
+ * @param {DocumentElement} document_element
+ */
+function encode_element(document_element) {
+  const data = JSON.stringify(document_element,
+    (key, value) => {
+      // Skip the child HTML element bullshit
+      if (key === "doc") return undefined
+      // Will have an object with keys of strings and
+      // values of other DocumentElements
+      else if (key === "children")
+        return JSON.stringify(Object.fromEntries(
+          Object.entries(value).map(
+            (inner_key, inner_value) => {
+              [inner_key, encode_element(inner_value)]
+            })
+        ))
+      else return value
+    })
+
+  console.log(data)
+
+  return data
+}
+
+function _arrayBufferToBase64( buffer ) {
+    var binary = '';
+    var bytes = new Uint8Array( buffer );
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) {
+        binary += String.fromCharCode( bytes[ i ] );
+    }
+    return window.btoa( binary );
+}
+
+function _base64ToArrayBuffer(base64) {
+    var binary_string = window.atob(base64);
+    var len = binary_string.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+
+async function compress(string) {
+  const byteArray = new TextEncoder().encode(string);
+  const cs = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  writer.write(byteArray);
+  writer.close();
+  return _arrayBufferToBase64(await(new Response(cs.readable).arrayBuffer()));
+}
+
+async function decompress(input) {
+  const byteArray = _base64ToArrayBuffer(input)
+  const cs = new DecompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  writer.write(byteArray);
+  writer.close();
+  arrayBuffer = await new Response(cs.readable).arrayBuffer()
+  return new TextDecoder().decode(arrayBuffer);
+}
+
+/** 
+ * Takes the data from the DocumentTree, JSON encodes it, 
+ * then compresses it, then base64 encodes it
+ * 
+ * @param {DocumentTree} document_tree
+ */
+async function encode_tree(document_tree) {
+  return await compress(JSON.stringify(document_tree))
+}
+
+async function load_element(url, children) {
+  console.log({url, children})
+
+  children
+
+  const this_data = await get_parsed_doc(url)
+
+
+  console.log(this_data)
+}
+
+/**
+ * Takes an encoded tree and returns a new tree from the decoded value
+ * 
+ * @param {string} url_data
+ * @returns {DocumentTree}
+ */
+async function decode_tree(url_data) {
+  // First, decompress
+  const raw_data = JSON.parse(await decompress(url_data))
+  console.log(raw_data)
+
+  // Recursively initalize the root docs
+  const root_docs = Object.entries(raw_data.root_docs).map(
+    async ([url, children]) => {
+      await load_element(url, children)
+      DocumentElement.createFromChildren()
+  })
+
+  // Initalize the overall doc tree
+  DocumentTree.createFromRootDocs
+}
+
+
 
 // Link interception logic - https://stackoverflow.com/a/33616981
 async function interceptClickEvent(e) {
@@ -150,12 +268,25 @@ function parse_doc(doc) {
  */
 function prep_doc(doc, url) {
   const title_elem = doc.getElementsByClassName('mw-first-heading')[0]
-  
+
   // The special place for Wikipedia to put indicators
   // Will inject a copy link button here
-  const indicators = doc.getElementsByClassName("mw-indicators")
-  
-  
+  const indicators = doc.getElementsByClassName("mw-indicators")[0]
+  if (indicators !== undefined) {
+    const copy_link_element = document.createElement("div")
+    copy_link_element.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>`
+    copy_link_element.classList.add("mw-indicator")
+    copy_link_element.classList.add("boost-copyindicator")
+
+    copy_link_element.addEventListener('click', (e) => {
+      const target = `${window.location.origin}${url}`
+      e.preventDefault()
+      navigator.clipboard.writeText(target)
+    })
+
+    indicators.appendChild(copy_link_element)
+  }
+
   title_elem.querySelector(".mw-editsection")?.remove()
 
   doc.setAttribute("org-source", url)
@@ -184,6 +315,25 @@ class DocumentElement {
     this.children = {}
     /** @type string */
     this.selected_child = undefined
+  }
+
+  toJSON() {
+    return {
+      children: this.children,
+      selected_child: this.selected_child
+    }
+  }
+
+  /**
+   * 
+   * @param {Element} page
+   * @param {string} url
+   * @param {string} title
+   * @param {Object.<string, DocumentElement>} children
+   * @param {string} selected_child
+   */
+  static createFromChildren(page, url, title, children, selected_child) {
+
   }
 
   /** 
@@ -404,6 +554,27 @@ class DocumentTree {
     this.frames = []
   }
 
+  /**
+   * Generate a DocumentTree from all the info about the documents.
+   * 
+   * @param {Element} container
+   * @param {Object.<string, DocumentElement>} root_docs
+   * @param {string} active_root_docs
+   */
+  static createFromRootDocs(container, root_docs, active_root_docs) {
+    const tree = new DocumentTree(container)
+    tree.root_docs = root_docs
+    tree.active_root_doc = active_root_docs
+    return tree
+  }
+
+  toJSON() {
+    return {
+      root_docs: this.root_docs,
+      active_root_doc: this.active_root_doc
+    }
+  }
+
   /** 
    * Generates a tabbed frame that can have docs inserted.
    * 
@@ -413,7 +584,7 @@ class DocumentTree {
   get_clean_frame(i) {
     if (this.frames.length > i) {
       this.frames[i].clear();
-      console.debug({"cleared and reloaded": this.frames, this_one: this.frames[i]})
+      console.debug({ "cleared and reloaded": this.frames, this_one: this.frames[i] })
 
       return [this.frames[i], false]
     } else {
@@ -422,7 +593,7 @@ class DocumentTree {
       }
       const last_frame = new LevelFrame()
       this.frames.push(last_frame)
-      console.debug({"new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame})
+      console.debug({ "new frames generated": this.frames, this_one_index: this.frames[i], this_one_returned: last_frame })
 
       return [last_frame, true]
     }
@@ -438,7 +609,10 @@ class DocumentTree {
   }
 
   /** Redraws the container from the current state */
-  redraw_container() {
+  async redraw_container() {
+    const encoded_tree = await encode_tree(this)
+    const decoded_tree = await decode_tree(encoded_tree)
+    console.log({encode_tree, decoded_tree})
     // If the stack is empty, draw the "nothing here" thing!
     if (this.root_docs.length == 0) {
       throw new Error("nothing here!")
@@ -620,6 +794,62 @@ function first_time_setup(doc, search) {
   let sub_container = doc.createElement("div");
   sub_container.id = "boost-subcontainer"
   big_container.appendChild(sub_container)
+
+  // This needs to happen later because for some gd reason they decided to inject the css late
+  setTimeout(() => {
+    const css_root = document.querySelector(':root')
+
+    // Background css color
+    const simple_bg_color = getComputedStyle(css_root)
+      .getPropertyValue('--arc-background-simple-color');
+    const gradent_bg_color_1 = getComputedStyle(css_root)
+      .getPropertyValue('--arc-background-gradient-color0');
+    const gradent_bg_color_2 = getComputedStyle(css_root)
+      .getPropertyValue('--arc-background-gradient-color1');
+    const core_bg_color = getComputedStyle(css_root)
+      .getPropertyValue('--arc--color');
+
+    // Title and other smaller colors
+    const title_color = getComputedStyle(css_root)
+      .getPropertyValue('--arc-palette-title');
+    const focus_color = getComputedStyle(css_root)
+      .getPropertyValue('--arc-palette-focus');
+
+    
+    // default to using the fallback colors
+    let bg_1 = 'rgb(55, 236, 146)'
+    let bg_2 = 'rgb(134, 123, 228)'
+    if (core_bg_color != '') {
+      bg_1 = 'var(--arc-palette-background)'
+      bg_2 = 'var(--arc-palette-background)'
+    }
+    // If gradient is set, try to use that
+    if (gradent_bg_color_1 != '') {
+      bg_1 = 'var(--arc-background-gradient-color0)'
+      bg_2 = 'var(--arc-background-gradient-color1)'
+    }
+    // Otherwise, fall back to simple
+    else if (simple_bg_color != '') {
+      bg_1 = 'var(--arc-background-simple-color)'
+      bg_2 = 'var(--arc-background-simple-color)'
+    }
+
+
+    let title = 'black'
+    if (title_color != '') {
+      title = 'var(--arc-palette-title)'
+    }
+
+    let focus = "lightgrey"
+    if (focus_color != '') {
+      focus = 'var(--arc-palette-focus)'
+    }
+
+     document.body.style.setProperty('--color-one', bg_1);
+     document.body.style.setProperty('--color-two', bg_2);
+     document.body.style.setProperty('--title-color', title);
+     document.body.style.setProperty('--focus-color', focus);
+  }, 300)
 
   return sub_container
 }
