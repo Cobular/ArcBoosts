@@ -162,15 +162,26 @@ async function encode_tree(document_tree) {
   return await compress(JSON.stringify(document_tree))
 }
 
-async function load_element(url, children) {
-  console.log({url, children})
+async function load_element(this_url, children, selected_child_url) {
+  console.log({this_url, children})
 
-  children
+  const this_page = await get_parsed_doc(this_url).main_content
 
-  const this_data = await get_parsed_doc(url)
+  const children_data = Object.entries(children).map(
+    async ([sub_url, sub_value]) => {
+      const sub_children = sub_value['children']
+      const sub_selected_child = sub_value['selected_child']
+      console.log([sub_url, sub_children])
+      // await load_element(url, sub_children)
+  })
 
+  console.log({children_data})
 
-  console.log(this_data)
+  const this_data = await get_parsed_doc(this_url)
+
+  console.log({children_data, this_data})
+
+  return DocumentElement.createFromChildren(this_page, this_url, )
 }
 
 /**
@@ -179,20 +190,27 @@ async function load_element(url, children) {
  * @param {string} url_data
  * @returns {DocumentTree}
  */
-async function decode_tree(url_data) {
+async function decode_tree(container, url_data) {
   // First, decompress
   const raw_data = JSON.parse(await decompress(url_data))
   console.log(raw_data)
 
-  // Recursively initalize the root docs
-  const root_docs = Object.entries(raw_data.root_docs).map(
-    async ([url, children]) => {
-      await load_element(url, children)
-      DocumentElement.createFromChildren()
-  })
+  // Initalize the root docs
+  const root_docs = await Promise.all(Object.entries(raw_data.root_docs).map(
+    async ([this_url, value]) => {
+      const children = value['children']
+      const selected_child = value['selected_child']
+      // This element with it's children fully loaded
+      console.log("decode_tree", {this_url, children, selected_child})
+      const this_element = await load_element(this_url, children, selected_child)
+      console.log([this_url, this_element])
+      return [this_url, this_element]
+  }))
+
+  console.log({root_docs: Object.fromEntries(root_docs)})
 
   // Initalize the overall doc tree
-  DocumentTree.createFromRootDocs
+  return DocumentTree.createFromRootDocs(container, root_docs)
 }
 
 
@@ -611,8 +629,8 @@ class DocumentTree {
   /** Redraws the container from the current state */
   async redraw_container() {
     const encoded_tree = await encode_tree(this)
-    const decoded_tree = await decode_tree(encoded_tree)
-    console.log({encode_tree, decoded_tree})
+    const decoded_tree = await decode_tree(document.createElement("div"), encoded_tree)
+    console.log({encoded_tree, decoded_tree})
     // If the stack is empty, draw the "nothing here" thing!
     if (this.root_docs.length == 0) {
       throw new Error("nothing here!")
